@@ -1,21 +1,14 @@
-const fs = require("fs/promises");
-const path = require("path");
-
 const { getSession } = require("./authcontrollers");
+const { downloadJson, uploadJson } = require("../config/storage");
 
-const templatesFile = path.join(__dirname, "../data/template.json");
+const templatesFile = "template.json";
 
 const getTemplates = async () => {
-  const data = await fs.readFile(templatesFile, "utf-8");
-  return JSON.parse(data);
+  return await downloadJson(templatesFile, {});
 };
 
 const saveTemplates = async (templates) => {
-  await fs.writeFile(
-    templatesFile,
-    JSON.stringify(templates, null, 2),
-    "utf-8",
-  );
+  await uploadJson(templatesFile, templates);
 };
 
 const getUserSession = async (req, res) => {
@@ -57,9 +50,7 @@ const getAllTemplates = async (req, res) => {
     }
 
     const templatesData = await getTemplates();
-
     const userEmail = session.email;
-
     const userTemplates = templatesData[userEmail] || [];
 
     res.json({
@@ -98,7 +89,6 @@ const createTemplate = async (req, res) => {
     }
 
     const templatesData = await getTemplates();
-
     const userEmail = session.email;
 
     if (!templatesData[userEmail]) {
@@ -154,9 +144,7 @@ const updateTemplate = async (req, res) => {
     }
 
     const templatesData = await getTemplates();
-
     const userEmail = session.email;
-
     const userTemplates = templatesData[userEmail] || [];
 
     const index = userTemplates.findIndex((template) => template.id === id);
@@ -209,9 +197,7 @@ const deleteTemplate = async (req, res) => {
     const { id } = req.params;
 
     const templatesData = await getTemplates();
-
     const userEmail = session.email;
-
     const userTemplates = templatesData[userEmail] || [];
 
     const templateExists = userTemplates.some((template) => template.id === id);
