@@ -1,26 +1,14 @@
-const fs = require("fs/promises");
-const path = require("path");
-
 const { getSession } = require("./authcontrollers");
+const { downloadJson, uploadJson } = require("../config/storage");
 
-const recipientsFile = path.join(__dirname, "../data/recipients.json");
+const recipientsFile = "recipients.json";
 
 const getRecipients = async () => {
-  const data = await fs.readFile(recipientsFile, "utf-8");
-
-  if (!data.trim()) {
-    return {};
-  }
-
-  return JSON.parse(data);
+  return await downloadJson(recipientsFile, {});
 };
 
 const saveRecipients = async (recipients) => {
-  await fs.writeFile(
-    recipientsFile,
-    JSON.stringify(recipients, null, 2),
-    "utf-8",
-  );
+  await uploadJson(recipientsFile, recipients);
 };
 
 const getUserSession = async (req, res) => {
@@ -31,7 +19,6 @@ const getUserSession = async (req, res) => {
       success: false,
       message: "Login session is required",
     });
-
     return null;
   }
 
@@ -42,7 +29,6 @@ const getUserSession = async (req, res) => {
       success: false,
       message: "Session expired. Please login again.",
     });
-
     return null;
   }
 
@@ -52,12 +38,11 @@ const getUserSession = async (req, res) => {
 const getAllRecipients = async (req, res) => {
   try {
     const session = await getUserSession(req, res);
-
     if (!session) return;
 
     const recipientsData = await getRecipients();
-    const userEmail = session.email;
 
+    const userEmail = session.email;
     const userRecipients = recipientsData[userEmail] || [];
 
     res.json({
@@ -77,7 +62,6 @@ const getAllRecipients = async (req, res) => {
 const addRecipient = async (req, res) => {
   try {
     const session = await getUserSession(req, res);
-
     if (!session) return;
 
     const { email, firstName } = req.body;
@@ -124,17 +108,17 @@ const addRecipient = async (req, res) => {
     });
   }
 };
+
 const deleteRecipient = async (req, res) => {
   try {
     const session = await getUserSession(req, res);
-
     if (!session) return;
 
     const { id } = req.params;
 
     const recipientsData = await getRecipients();
-    const userEmail = session.email;
 
+    const userEmail = session.email;
     const userRecipients = recipientsData[userEmail] || [];
 
     const recipientExists = userRecipients.some(
