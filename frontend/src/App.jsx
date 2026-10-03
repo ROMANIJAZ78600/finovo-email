@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import "./App.css";
 import Login from "./components/Login";
 
-const API_URL = "http://localhost:5000";
+const API_URL = "https://finovo-email.vercel.app/";
 
 function App() {
   const [loggedInUser, setLoggedInUser] = useState(null);
