@@ -1,0 +1,24 @@
+{
+  "roman@finovoglobal.com": [
+    {
+      "id": "1",
+      "email": "romanijaz31@gmail.com",
+      "firstName": "Roman",
+      "status": "Pending",
+      "emailSent": "No",
+      "sentAt": "",
+      "error": ""
+    }
+  ],
+  "Muzammil.pirani@finovoglobal.com": [
+    {
+      "id": "1791041092426",
+      "email": "roman@finovoglobal.com",
+      "firstName": "Roman",
+      "status": "Pending",
+      "emailSent": "No",
+      "sentAt": "",
+      "error": ""
+    }
+  ]
+}
