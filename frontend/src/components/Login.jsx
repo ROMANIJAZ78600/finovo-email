@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-const API_URL = "https://finovo-email.vercel.app/";
+const API_URL = "https://finovo-email.vercel.app";
 
 function Login({ onLogin }) {
   const [email, setEmail] = useState("");
