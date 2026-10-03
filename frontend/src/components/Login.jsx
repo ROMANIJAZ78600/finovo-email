@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-const API_URL = "http://localhost:5000"; // Replace with your backend API URL
+const API_URL = "https://finovo-email.vercel.app"; // Replace with your backend API URL
 
 function Login({ onLogin }) {
   const [email, setEmail] = useState("");
