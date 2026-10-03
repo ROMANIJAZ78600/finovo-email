@@ -1,0 +1,17 @@
+# Dependencies
+node_modules/
+
+# Environment variables
+.env
+.env.*
+
+# Backend session data
+backend/src/data/sessions.json
+backend/src/data/recipients.json
+
+# Local development
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
