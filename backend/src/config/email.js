@@ -1,7 +1,7 @@
-const emailjs = require("emailjs");
+const createSmtpClient = async (email, password) => {
+  const { SMTPClient } = await import("emailjs");
 
-const createSmtpClient = (email, password) => {
-  return new emailjs.SMTPClient({
+  return new SMTPClient({
     user: email,
     password: password,
     host: process.env.SMTP_HOST,

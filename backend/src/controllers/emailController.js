@@ -84,7 +84,7 @@ const sendTestEmail = async (req, res) => {
       });
     }
 
-    const smtpClient = createSmtpClient(session.email, session.password);
+    const smtpClient = await createSmtpClient(session.email, session.password);
 
     const subject = "Are travelers calling when your team is unavailable?";
 
@@ -253,7 +253,7 @@ const sendBulkEmails = async (req, res) => {
       });
     }
 
-    const smtpClient = createSmtpClient(session.email, session.password);
+    const smtpClient = await createSmtpClient(session.email, session.password);
 
     // ==================================================
     // LOAD CURRENT USER'S SAVED RECIPIENTS
