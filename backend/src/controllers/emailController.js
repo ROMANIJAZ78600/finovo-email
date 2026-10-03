@@ -1,33 +1,25 @@
-const fs = require("fs/promises");
-const path = require("path");
-
 const createSmtpClient = require("../config/email");
+const { downloadJson, uploadJson } = require("../config/storage");
 const { getSession } = require("./authcontrollers");
 const createImapClient = require("../config/imap");
 const ExcelJS = require("exceljs");
-
-const recipientsFile = path.join(__dirname, "../data/recipients.json");
 
 // ======================================================
 // RECIPIENT FILE HELPERS
 // ======================================================
 
+// ======================================================
+// RECIPIENT STORAGE HELPERS
+// ======================================================
+
+const recipientsFile = "recipients.json";
+
 const getRecipientsData = async () => {
-  const data = await fs.readFile(recipientsFile, "utf-8");
-
-  if (!data.trim()) {
-    return {};
-  }
-
-  return JSON.parse(data);
+  return await downloadJson(recipientsFile, {});
 };
 
 const saveRecipientsData = async (recipientsData) => {
-  await fs.writeFile(
-    recipientsFile,
-    JSON.stringify(recipientsData, null, 2),
-    "utf-8",
-  );
+  await uploadJson(recipientsFile, recipientsData);
 };
 
 // ======================================================

@@ -471,6 +471,13 @@ function App() {
       return;
     }
 
+    const sessionId = localStorage.getItem("sessionId");
+
+    if (!sessionId) {
+      alert("Login session is required. Please login again.");
+      return;
+    }
+
     try {
       const response = await fetch(`${API_URL}/api/email/export`, {
         method: "POST",
@@ -478,29 +485,26 @@ function App() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
+          sessionId,
           recipients,
         }),
       });
 
       if (!response.ok) {
         const data = await response.json();
-
         throw new Error(data.message || "Failed to export Excel");
       }
 
       const blob = await response.blob();
 
       const url = window.URL.createObjectURL(blob);
-
       const link = document.createElement("a");
 
       link.href = url;
       link.download = "email_records.xlsx";
 
       document.body.appendChild(link);
-
       link.click();
-
       link.remove();
 
       window.URL.revokeObjectURL(url);
