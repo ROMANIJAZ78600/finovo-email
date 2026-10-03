@@ -1,33 +1,7 @@
 const crypto = require("crypto");
-const fs = require("fs/promises");
-const path = require("path");
 const { SMTPClient } = require("smtp-client");
 
-const sessionsFile = path.join(__dirname, "../data/sessions.json");
-
-const ensureSessionsFile = async () => {
-  try {
-    await fs.access(sessionsFile);
-  } catch {
-    await fs.writeFile(sessionsFile, "{}", "utf-8");
-  }
-};
-
-const getSessions = async () => {
-  await ensureSessionsFile();
-
-  const data = await fs.readFile(sessionsFile, "utf-8");
-
-  if (!data.trim()) {
-    return {};
-  }
-
-  return JSON.parse(data);
-};
-
-const saveSessions = async (sessions) => {
-  await fs.writeFile(sessionsFile, JSON.stringify(sessions, null, 2), "utf-8");
-};
+const sessions = new Map();
 
 const verifySmtpCredentials = async (email, password) => {
   const client = new SMTPClient({
@@ -79,15 +53,11 @@ const login = async (req, res) => {
 
     const sessionId = crypto.randomUUID();
 
-    const sessions = await getSessions();
-
-    sessions[sessionId] = {
+    sessions.set(sessionId, {
       email: cleanEmail,
       password,
       expiresAt: Date.now() + 24 * 60 * 60 * 1000,
-    };
-
-    await saveSessions(sessions);
+    });
 
     return res.status(200).json({
       success: true,
@@ -110,29 +80,18 @@ const getSession = async (sessionId) => {
     return null;
   }
 
-  try {
-    const sessions = await getSessions();
+  const session = sessions.get(sessionId);
 
-    const session = sessions[sessionId];
-
-    if (!session) {
-      return null;
-    }
-
-    if (Date.now() > session.expiresAt) {
-      delete sessions[sessionId];
-
-      await saveSessions(sessions);
-
-      return null;
-    }
-
-    return session;
-  } catch (error) {
-    console.error("Get session error:", error.message);
-
+  if (!session) {
     return null;
   }
+
+  if (Date.now() > session.expiresAt) {
+    sessions.delete(sessionId);
+    return null;
+  }
+
+  return session;
 };
 
 const deleteSession = async (sessionId) => {
@@ -140,11 +99,7 @@ const deleteSession = async (sessionId) => {
     return;
   }
 
-  const sessions = await getSessions();
-
-  delete sessions[sessionId];
-
-  await saveSessions(sessions);
+  sessions.delete(sessionId);
 };
 
 const checkSession = async (req, res) => {
