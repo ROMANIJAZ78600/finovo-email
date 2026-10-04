@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import "./App.css";
 import Login from "./components/Login";
-
+import toast, { Toaster } from "react-hot-toast";
+import { CircleLoader } from "react-spinners";
 const API_URL = "https://finovo-email.vercel.app";
 
 function App() {
@@ -147,10 +148,19 @@ function App() {
 
   if (checkingSession) {
     return (
-      <div className="app">
-        <div className="container">
-          <h2>Checking session...</h2>
-        </div>
+      <div
+        style={{
+          textAlign: "center",
+          marginTop: "100px",
+          fontSize: "18px",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          gap: "20px",
+        }}
+      >
+        <p>Please wait while we restore your session.</p>
+        <CircleLoader color="#000" />
       </div>
     );
   }
@@ -226,17 +236,17 @@ function App() {
 
   const saveTemplate = async () => {
     if (!templateName.trim()) {
-      alert("Enter template name.");
+      toast.error("Enter template name.");
       return;
     }
 
     if (!templateSubject.trim()) {
-      alert("Enter template subject.");
+      toast.error("Enter template subject.");
       return;
     }
 
     if (!templateBody.trim()) {
-      alert("Enter template body.");
+      toast.error("Enter template body.");
       return;
     }
 
@@ -285,7 +295,7 @@ function App() {
     } catch (error) {
       console.error("Save template error:", error);
 
-      alert(`Failed to save template.\n\n${error.message}`);
+      toast.error(`Failed to save template.\n\n${error.message}`);
     }
   };
 
@@ -402,17 +412,17 @@ function App() {
 
   const sendEmails = async () => {
     if (recipients.length === 0) {
-      alert("Please add at least one recipient.");
+      toast.error("Please add at least one recipient.");
       return;
     }
 
     if (!subject.trim()) {
-      alert("Please enter an email subject.");
+      toast.error("Please enter an email subject.");
       return;
     }
 
     if (!body.trim()) {
-      alert("Please enter an email body.");
+      toast.error("Please enter an email body.");
       return;
     }
 
@@ -467,14 +477,14 @@ function App() {
 
   const exportExcel = async () => {
     if (recipients.length === 0) {
-      alert("No recipient records to export.");
+      toast.error("No recipient records to export.");
       return;
     }
 
     const sessionId = localStorage.getItem("sessionId");
 
     if (!sessionId) {
-      alert("Login session is required. Please login again.");
+      toast.error("Login session is required. Please login again.");
       return;
     }
 
@@ -511,7 +521,7 @@ function App() {
     } catch (error) {
       console.error("Excel export error:", error);
 
-      alert(`Failed to export Excel.\n\n${error.message}`);
+      toast.error(`Failed to export Excel.\n\n${error.message}`);
     }
   };
 
@@ -519,278 +529,379 @@ function App() {
     localStorage.removeItem("sessionId");
 
     setLoggedInUser(null);
+    toast.success("Logged out successfully.");
+  };
+
+  const clearAllRecipients = async () => {
+    if (recipients.length === 0) {
+      toast.error("There are no recipients to clear.");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Are you sure you want to delete all ${recipients.length} recipients?`,
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    const sessionId = localStorage.getItem("sessionId");
+
+    if (!sessionId) {
+      toast.error("Login session is required. Please login again.");
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_URL}/api/recipients/clear-all`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          sessionId,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to clear recipients");
+      }
+
+      setRecipients([]);
+
+      toast.success("All recipients cleared successfully.");
+    } catch (error) {
+      console.error("Clear recipients error:", error);
+      toast.error(`Failed to clear recipients.\n\n${error.message}`);
+    }
   };
 
   return (
-    <div className="app">
-      <div className="app-header">
-        <div>
-          <h1>Email Sender</h1>
-          <p>Logged in as: {loggedInUser?.email}</p>
+    <>
+      <Toaster
+        position="top-center"
+        toastOptions={{
+          duration: 5000,
+          style: {
+            background: "#ffffff",
+            color: "#111827",
+            border: "1px solid #e5e7eb",
+            borderRadius: "10px",
+            padding: "12px 16px",
+            fontSize: "14px",
+            boxShadow: "0 4px 12px rgba(0, 0, 0, 0.08)",
+          },
+          success: {
+            duration: 3000,
+            iconTheme: {
+              primary: "#16a34a",
+              secondary: "#ffffff",
+            },
+          },
+          error: {
+            duration: 4000,
+            iconTheme: {
+              primary: "#dc2626",
+              secondary: "#ffffff",
+            },
+          },
+        }}
+        reverseOrder={false}
+        gutter={8}
+      />
+      <div className="app">
+        <div className="app-header">
+          <div>
+            <h1>Email Sender</h1>
+            <p>Logged in as: {loggedInUser?.email}</p>
+          </div>
+
+          <button className="logout-btn" onClick={handleLogout}>
+            Logout
+          </button>
         </div>
+        <div className="container">
+          <h1>AI Email Sender</h1>
 
-        <button className="logout-btn" onClick={handleLogout}>
-          Logout
-        </button>
-      </div>
-      <div className="container">
-        <h1>AI Email Sender</h1>
-
-        {/* =========================
+          {/* =========================
             TEMPLATE SECTION
         ========================= */}
 
-        <div className="section">
-          <div className="section-header">
-            <label>Email Template</label>
+          <div className="section">
+            <div className="section-header">
+              <label>Email Template</label>
 
-            <button
-              className="template-create-btn"
-              onClick={openCreateTemplate}
-            >
-              + New Template
-            </button>
+              <button
+                className="template-create-btn"
+                onClick={openCreateTemplate}
+              >
+                + New Template
+              </button>
+            </div>
+
+            <select value={selectedTemplate} onChange={handleTemplateChange}>
+              {templates.length === 0 ? (
+                <option value="">No templates available</option>
+              ) : (
+                templates.map((template) => (
+                  <option key={template.id} value={template.id}>
+                    {template.name}
+                  </option>
+                ))
+              )}
+            </select>
           </div>
 
-          <select value={selectedTemplate} onChange={handleTemplateChange}>
-            {templates.length === 0 ? (
-              <option value="">No templates available</option>
-            ) : (
-              templates.map((template) => (
-                <option key={template.id} value={template.id}>
-                  {template.name}
-                </option>
-              ))
-            )}
-          </select>
-        </div>
-
-        {/* =========================
+          {/* =========================
             TEMPLATE MANAGER
         ========================= */}
 
-        <div className="section">
-          <label>Saved Templates</label>
+          <div className="section">
+            <label>Saved Templates</label>
 
-          <div className="template-list">
-            {templates.length === 0 ? (
-              <div className="empty">No templates available</div>
-            ) : (
-              templates.map((template) => (
-                <div className="template-card" key={template.id}>
-                  <div className="template-info">
-                    <strong>{template.name}</strong>
+            <div className="template-list">
+              {templates.length === 0 ? (
+                <div className="empty">No templates available</div>
+              ) : (
+                templates.map((template) => (
+                  <div className="template-card" key={template.id}>
+                    <div className="template-info">
+                      <strong>{template.name}</strong>
 
-                    <span>{template.subject}</span>
+                      <span>{template.subject}</span>
+                    </div>
+
+                    <div className="template-actions">
+                      <button onClick={() => useTemplate(template)}>Use</button>
+
+                      <button onClick={() => openEditTemplate(template)}>
+                        Edit
+                      </button>
+
+                      <button
+                        className="delete-template-btn"
+                        onClick={() => deleteTemplate(template.id)}
+                      >
+                        Delete
+                      </button>
+                    </div>
                   </div>
-
-                  <div className="template-actions">
-                    <button onClick={() => useTemplate(template)}>Use</button>
-
-                    <button onClick={() => openEditTemplate(template)}>
-                      Edit
-                    </button>
-
-                    <button
-                      className="delete-template-btn"
-                      onClick={() => deleteTemplate(template.id)}
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </div>
-              ))
-            )}
+                ))
+              )}
+            </div>
           </div>
-        </div>
 
-        {/* =========================
+          {/* =========================
             CREATE / EDIT TEMPLATE
         ========================= */}
 
-        {showTemplateForm && (
-          <div className="template-form section">
-            <h2>
-              {editingTemplateId ? "Edit Template" : "Create New Template"}
-            </h2>
+          {showTemplateForm && (
+            <div className="template-form section">
+              <h2>
+                {editingTemplateId ? "Edit Template" : "Create New Template"}
+              </h2>
 
-            <label>Template Name</label>
+              <label>Template Name</label>
 
-            <input
-              type="text"
-              value={templateName}
-              onChange={(e) => setTemplateName(e.target.value)}
-              placeholder="e.g. Travel Agency Outreach"
-            />
+              <input
+                type="text"
+                value={templateName}
+                onChange={(e) => setTemplateName(e.target.value)}
+                placeholder="e.g. Travel Agency Outreach"
+              />
 
-            <label>Template Subject</label>
+              <label>Template Subject</label>
 
-            <input
-              type="text"
-              value={templateSubject}
-              onChange={(e) => setTemplateSubject(e.target.value)}
-              placeholder="Enter email subject"
-            />
+              <input
+                type="text"
+                value={templateSubject}
+                onChange={(e) => setTemplateSubject(e.target.value)}
+                placeholder="Enter email subject"
+              />
 
-            <label>Template Body</label>
+              <label>Template Body</label>
 
-            <textarea
-              value={templateBody}
-              onChange={(e) => setTemplateBody(e.target.value)}
-              rows="12"
-              placeholder="Hi {first_name},..."
-            />
+              <textarea
+                value={templateBody}
+                onChange={(e) => setTemplateBody(e.target.value)}
+                rows="12"
+                placeholder="Hi {first_name},..."
+              />
 
-            <p className="hint">
-              Use <strong>{"{first_name}"}</strong> for recipient
-              personalization.
-            </p>
+              <p className="hint">
+                Use <strong>{"{first_name}"}</strong> for recipient
+                personalization.
+              </p>
 
-            <div className="template-form-actions">
-              <button onClick={saveTemplate}>
-                {editingTemplateId ? "UPDATE TEMPLATE" : "SAVE TEMPLATE"}
-              </button>
+              <div className="template-form-actions">
+                <button onClick={saveTemplate}>
+                  {editingTemplateId ? "UPDATE TEMPLATE" : "SAVE TEMPLATE"}
+                </button>
 
-              <button onClick={closeTemplateForm}>CANCEL</button>
+                <button onClick={closeTemplateForm}>CANCEL</button>
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* =========================
+          {/* =========================
             EMAIL SUBJECT
         ========================= */}
 
-        <div className="section">
-          <label>Email Subject</label>
-
-          <input
-            type="text"
-            value={subject}
-            onChange={(e) => setSubject(e.target.value)}
-            placeholder="Enter email subject"
-          />
-        </div>
-
-        {/* =========================
-            RECIPIENT
-        ========================= */}
-
-        <div className="section">
-          <label>Add Recipient</label>
-
-          <div className="recipient-form">
-            <input
-              type="email"
-              placeholder="Email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
+          <div className="section">
+            <label>Email Subject</label>
 
             <input
               type="text"
-              placeholder="First Name"
-              value={firstName}
-              onChange={(e) => setFirstName(e.target.value)}
+              value={subject}
+              onChange={(e) => setSubject(e.target.value)}
+              placeholder="Enter email subject"
             />
-
-            <button onClick={addRecipient}>+ Add</button>
           </div>
-        </div>
 
-        {/* =========================
+          {/* =========================
+            RECIPIENT
+        ========================= */}
+
+          <div className="section">
+            <label>Add Recipient</label>
+
+            <div className="recipient-form">
+              <input
+                type="email"
+                placeholder="Email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+
+              <input
+                type="text"
+                placeholder="First Name"
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+              />
+
+              <button onClick={addRecipient}>+ Add</button>
+            </div>
+          </div>
+
+          {/* =========================
             RECIPIENT TABLE
         ========================= */}
 
-        <div className="section">
-          <label>Recipients ({recipients.length})</label>
+          <div className="section">
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                marginBottom: "10px",
+              }}
+            >
+              <label>Recipients ({recipients.length})</label>
+              <button
+                type="button"
+                onClick={clearAllRecipients}
+                disabled={recipients.length === 0}
+                className="clear-all-btn"
+              >
+                Clear All
+              </button>
+            </div>
 
-          <div className="table-container">
-            <table>
-              <thead>
-                <tr>
-                  <th>Email</th>
-                  <th>First Name</th>
-                  <th>Status</th>
-                  <th>Email Sent</th>
-                  <th>Action</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {recipients.length === 0 ? (
+            <div className="table-container">
+              <table>
+                <thead>
                   <tr>
-                    <td colSpan="5" className="empty">
-                      No recipients added
-                    </td>
+                    <th>Email</th>
+                    <th>First Name</th>
+                    <th>Status</th>
+                    <th>Email Sent</th>
+                    <th>Action</th>
                   </tr>
-                ) : (
-                  recipients.map((person, index) => (
-                    <tr key={index}>
-                      <td>{person.email}</td>
-                      <td>{person.firstName}</td>
-                      <td>{person.status}</td>
-                      <td>{person.emailSent}</td>
+                </thead>
 
-                      <td>
-                        <button onClick={() => deleteRecipient(person.id)}>
-                          Delete
-                        </button>
+                <tbody>
+                  {recipients.length === 0 ? (
+                    <tr>
+                      <td colSpan="5" className="empty">
+                        No recipients added
                       </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
+                  ) : (
+                    recipients.map((person, index) => (
+                      <tr key={index}>
+                        <td>{person.email}</td>
+                        <td>{person.firstName}</td>
+                        <td>{person.status}</td>
+                        <td>{person.emailSent}</td>
 
-        {/* =========================
+                        <td>
+                          <button onClick={() => deleteRecipient(person.id)}>
+                            Delete
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* =========================
             EMAIL BODY
         ========================= */}
 
-        <div className="section">
-          <label>Email Body</label>
+          <div className="section">
+            <label>Email Body</label>
 
-          <textarea
-            value={body}
-            onChange={(e) => setBody(e.target.value)}
-            rows="14"
-            placeholder="Write your email body..."
-          />
+            <textarea
+              value={body}
+              onChange={(e) => setBody(e.target.value)}
+              rows="14"
+              placeholder="Write your email body..."
+            />
 
-          <p className="hint">
-            Use <strong>{"{first_name}"}</strong> to automatically personalize
-            the email.
-          </p>
-        </div>
+            <p className="hint">
+              Use <strong>{"{first_name}"}</strong> to automatically personalize
+              the email.
+            </p>
+          </div>
 
-        {/* =========================
+          {/* =========================
             ACTIONS
         ========================= */}
 
-        <div className="actions">
-          <button className="send-btn" onClick={sendEmails} disabled={sending}>
-            {sending ? "SENDING..." : "SEND ALL EMAILS"}
-          </button>
+          <div className="actions">
+            <button
+              className="send-btn"
+              onClick={sendEmails}
+              disabled={sending}
+            >
+              {sending ? "SENDING..." : "SEND ALL EMAILS"}
+            </button>
 
-          <button
-            className="excel-btn"
-            onClick={exportExcel}
-            disabled={recipients.length === 0}
-          >
-            DOWNLOAD EXCEL
-          </button>
-        </div>
+            <button
+              className="excel-btn"
+              onClick={exportExcel}
+              disabled={recipients.length === 0}
+            >
+              DOWNLOAD EXCEL
+            </button>
+          </div>
 
-        {/* =========================
+          {/* =========================
             STATUS
         ========================= */}
 
-        <div className="status">
-          Status: <strong>{status}</strong>
+          <div className="status">
+            Status: <strong>{status}</strong>
+          </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }
 

@@ -617,3 +617,23 @@ button:disabled {
     padding: 9px 14px;
   }
 }
+.clear-all-btn {
+  background: #dc2626;
+  color: white;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.clear-all-btn:hover {
+  background: #b91c1c;
+}
+
+.clear-all-btn:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
+}

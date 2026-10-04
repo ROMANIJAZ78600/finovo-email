@@ -152,8 +152,39 @@ const deleteRecipient = async (req, res) => {
   }
 };
 
+// CLEAR ALL RECIPIENTS
+const clearAllRecipients = async (req, res) => {
+  try {
+    const session = await getUserSession(req, res);
+
+    if (!session) {
+      return;
+    }
+
+    const recipientsData = await getRecipients();
+    const userEmail = session.email;
+
+    recipientsData[userEmail] = [];
+
+    await saveRecipients(recipientsData);
+
+    res.json({
+      success: true,
+      message: "All recipients cleared successfully",
+    });
+  } catch (error) {
+    console.error("Clear all recipients error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Failed to clear recipients",
+    });
+  }
+};
+
 module.exports = {
   getAllRecipients,
   addRecipient,
   deleteRecipient,
+  clearAllRecipients,
 };
