@@ -299,7 +299,7 @@ const sendBulkEmails = async (req, res) => {
       });
     }
 
-    const MAX_TOTAL_SIZE = 35 * 1024 * 1024; // 25 MB
+    const MAX_TOTAL_SIZE = 100 * 1024 * 1024; // 25 MB
 
     const totalAttachmentSize = uploadedFiles.reduce(
       (total, file) => total + file.size,

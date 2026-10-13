@@ -32,8 +32,8 @@ function App() {
   const [firstName, setFirstName] = useState("");
 
   const MAX_FILES = 10;
-  const MAX_FILE_SIZE = 20 * 1024 * 1024;
-  const MAX_TOTAL_SIZE = 35 * 1024 * 1024;
+  const MAX_FILE_SIZE = 50 * 1024 * 1024;
+  const MAX_TOTAL_SIZE = 100 * 1024 * 1024;
 
   const handleAttachmentChange = (event) => {
     const selectedFiles = Array.from(event.target.files || []);
