@@ -150,7 +150,7 @@ Visit Our Website
 // SAVE EMAIL TO SENT FOLDER
 // ======================================================
 
-const saveToSent = async (message, email, password) => {
+const saveToSent = async (message, email, password, attachments = []) => {
   const client = createImapClient(email, password);
 
   try {
@@ -173,20 +173,88 @@ const saveToSent = async (message, email, password) => {
       return false;
     }
 
-    const messageSource = [
-      `From: ${message.from}`,
-      `To: ${message.to}`,
-      `Subject: ${message.subject}`,
+    const mixedBoundary = `mixed_${Date.now()}_${Math.random()
+      .toString(16)
+      .slice(2)}`;
+
+    const altBoundary = `alt_${Date.now()}_${Math.random()
+      .toString(16)
+      .slice(2)}`;
+
+    const encodeHeader = (value = "") => String(value).replace(/[\r\n]+/g, " ");
+
+    const escapeHtml = (value = "") =>
+      String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+
+    const base64Lines = (value) => {
+      const encoded = Buffer.from(value).toString("base64");
+      return encoded.match(/.{1,76}/g)?.join("\r\n") || "";
+    };
+
+    const headers = [
+      `From: ${encodeHeader(message.from)}`,
+      `To: ${encodeHeader(message.to)}`,
+      ...(message.cc ? [`Cc: ${encodeHeader(message.cc)}`] : []),
+      `Subject: ${encodeHeader(message.subject)}`,
       `Date: ${new Date().toUTCString()}`,
       "MIME-Version: 1.0",
-      "Content-Type: text/html; charset=UTF-8",
+      `Content-Type: multipart/mixed; boundary="${mixedBoundary}"`,
+    ];
+
+    const html = message.html || "";
+    const text = message.text || "";
+
+    const parts = [
+      `--${mixedBoundary}`,
+      `Content-Type: multipart/alternative; boundary="${altBoundary}"`,
       "",
-      message.html,
-    ].join("\r\n");
+      `--${altBoundary}`,
+      "Content-Type: text/plain; charset=UTF-8",
+      "Content-Transfer-Encoding: base64",
+      "",
+      base64Lines(text),
+      `--${altBoundary}`,
+      "Content-Type: text/html; charset=UTF-8",
+      "Content-Transfer-Encoding: base64",
+      "",
+      base64Lines(html),
+      `--${altBoundary}--`,
+    ];
 
-    await client.append(sentFolder.path, messageSource, ["\\Seen"], new Date());
+    for (const file of attachments) {
+      const safeName = encodeHeader(file.name || "attachment").replace(
+        /["\\]/g,
+        "_",
+      );
 
-    console.log(`Saved complete HTML to Sent: ${message.to}`);
+      parts.push(
+        `--${mixedBoundary}`,
+        `Content-Type: ${
+          file.type || "application/octet-stream"
+        }; name="${safeName}"`,
+        "Content-Transfer-Encoding: base64",
+        `Content-Disposition: attachment; filename="${safeName}"`,
+        "",
+        base64Lines(file.data),
+      );
+    }
+
+    parts.push(`--${mixedBoundary}--`);
+
+    const messageSource = [...headers, "", parts.join("\r\n")].join("\r\n");
+
+    await client.append(
+      sentFolder.path,
+      Buffer.from(messageSource, "utf8"),
+      ["\\Seen"],
+      new Date(),
+    );
+
+    console.log(`Saved email to Sent: ${message.to}`);
 
     return true;
   } catch (error) {
@@ -204,7 +272,46 @@ const saveToSent = async (message, email, password) => {
 
 const sendBulkEmails = async (req, res) => {
   try {
-    const { recipients, subject, body, sessionId } = req.body;
+    let { recipients, subject, body, sessionId, cc } = req.body;
+
+    const uploadedFiles = req.files || [];
+
+    // Handle both parsed arrays and JSON strings
+    if (typeof recipients === "string") {
+      try {
+        recipients = JSON.parse(recipients);
+      } catch (error) {
+        console.error("Recipients parsing error:", error.message);
+
+        return res.status(400).json({
+          success: false,
+          message: "Invalid recipients data",
+        });
+      }
+    }
+
+    if (!Array.isArray(recipients)) {
+      console.error("Recipients is not an array:", typeof recipients);
+
+      return res.status(400).json({
+        success: false,
+        message: "Recipients must be an array",
+      });
+    }
+
+    const MAX_TOTAL_SIZE = 35 * 1024 * 1024; // 25 MB
+
+    const totalAttachmentSize = uploadedFiles.reduce(
+      (total, file) => total + file.size,
+      0,
+    );
+
+    if (totalAttachmentSize > MAX_TOTAL_SIZE) {
+      return res.status(400).json({
+        success: false,
+        message: "Total attachments must not exceed 25 MB",
+      });
+    }
 
     if (!sessionId) {
       return res.status(401).json({
@@ -245,7 +352,32 @@ const sendBulkEmails = async (req, res) => {
       });
     }
 
+    const ccAddresses = cc
+      ? String(cc)
+          .split(",")
+          .map((email) => email.trim())
+          .filter(Boolean)
+      : [];
+
+    const invalidCc = ccAddresses.filter(
+      (email) => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email),
+    );
+
+    if (invalidCc.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: "One or more CC email addresses are invalid",
+        invalidCc,
+      });
+    }
+
     const smtpClient = await createSmtpClient(session.email, session.password);
+
+    const emailAttachments = uploadedFiles.map((file) => ({
+      data: file.buffer,
+      name: file.originalname,
+      type: file.mimetype,
+    }));
 
     // ==================================================
     // LOAD CURRENT USER'S SAVED RECIPIENTS
@@ -353,11 +485,18 @@ const sendBulkEmails = async (req, res) => {
           from: session.email,
           to: email,
           subject: subject.trim(),
+
+          ...(ccAddresses.length > 0 && {
+            cc: ccAddresses.join(", "),
+          }),
+
           attachment: [
             {
               data: finalHtml,
               alternative: true,
             },
+
+            ...emailAttachments,
           ],
         };
 
@@ -384,11 +523,18 @@ const sendBulkEmails = async (req, res) => {
           {
             from: session.email,
             to: email,
+            cc: ccAddresses.join(", "),
             subject: subject.trim(),
+            text: personalizedBody,
             html: finalHtml,
           },
           session.email,
           session.password,
+          uploadedFiles.map((file) => ({
+            name: file.originalname,
+            type: file.mimetype,
+            data: file.buffer,
+          })),
         );
 
         // ===============================================

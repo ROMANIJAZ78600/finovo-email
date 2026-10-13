@@ -19,6 +19,7 @@
     "exceljs": "^4.4.0",
     "express": "^5.2.1",
     "imapflow": "^2.2.1",
+    "multer": "^2.4.0",
     "smtp-client": "^0.4.0",
     "smtp-connection": "^4.0.2"
   },

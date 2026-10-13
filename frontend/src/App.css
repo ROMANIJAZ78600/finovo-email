@@ -637,3 +637,248 @@ button:disabled {
   background: #9ca3af;
   cursor: not-allowed;
 }
+
+/* =========================
+   CC & ATTACHMENT OPTIONS
+========================= */
+
+.mail-options {
+  position: relative;
+}
+
+.mail-options > label:first-child {
+  display: block;
+  margin-bottom: 10px;
+  color: #172033;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.mail-options input[type="text"] {
+  width: 100%;
+  min-height: 46px;
+  padding: 12px 14px;
+  border: 1px solid #d8deea;
+  border-radius: 10px;
+  background: #fff;
+  color: #172033;
+  font: inherit;
+  outline: none;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
+}
+
+.mail-options input[type="text"]:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.mail-options .hint {
+  margin: 9px 0 0;
+  color: #68758a;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+/* File picker dropzone */
+
+.attachment-dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 170px;
+  padding: 24px;
+  border: 2px dashed #c5d3e8;
+  border-radius: 14px;
+  background: #f7faff;
+  color: #24324a;
+  text-align: center;
+  cursor: pointer;
+  transition:
+    border-color 0.2s,
+    background 0.2s;
+}
+
+.attachment-dropzone:hover {
+  border-color: #2563eb;
+  background: #eff6ff;
+}
+
+.attachment-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: #dbeafe;
+  color: #1d4ed8;
+  font-size: 30px;
+  line-height: 1;
+}
+
+.attachment-dropzone strong {
+  font-size: 14px;
+}
+
+.attachment-dropzone span:not(.attachment-icon) {
+  color: #64748b;
+  font-size: 13px;
+}
+
+.attachment-dropzone small {
+  color: #7b8798;
+  font-size: 11px;
+}
+
+.attachment-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.attachment-input:focus-visible + .attachment-list {
+  outline: 2px solid #2563eb;
+}
+
+/* Selected file list */
+
+.attachment-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 16px;
+  padding: 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.attachment-list-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #edf0f5;
+  color: #25334a;
+  font-size: 13px;
+}
+
+.remove-all-files {
+  border: none;
+  background: transparent;
+  color: #dc2626;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.remove-all-files:disabled,
+.remove-file-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.attachment-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid #edf0f5;
+  border-radius: 9px;
+  background: #fafbfe;
+}
+
+.attachment-file-icon {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 9px;
+  background: #e8efff;
+  color: #2856bb;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.attachment-file-info {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+.attachment-file-info strong {
+  overflow: hidden;
+  color: #25334a;
+  font-size: 12px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.attachment-file-info span {
+  color: #7b8798;
+  font-size: 11px;
+}
+
+.remove-file-btn {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  background: #fff;
+  color: #dc2626;
+  font-size: 22px;
+  cursor: pointer;
+}
+
+.remove-file-btn:hover:not(:disabled) {
+  background: #fef2f2;
+}
+
+.attachment-total {
+  padding-top: 8px;
+  border-top: 1px solid #edf0f5;
+  color: #64748b;
+  font-size: 12px;
+  text-align: right;
+}
+
+/* Mobile responsiveness */
+
+@media (max-width: 600px) {
+  .attachment-dropzone {
+    min-height: 150px;
+    padding: 18px 12px;
+  }
+
+  .attachment-list {
+    padding: 10px;
+  }
+
+  .attachment-item {
+    gap: 8px;
+    padding: 8px;
+  }
+
+  .attachment-file-icon {
+    width: 36px;
+    height: 36px;
+  }
+}

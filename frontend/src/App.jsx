@@ -22,12 +22,60 @@ function App() {
   const [body, setBody] = useState("");
 
   const [recipients, setRecipients] = useState([]);
+  const [cc, setCc] = useState("");
+  const [attachments, setAttachments] = useState([]);
 
   const [sending, setSending] = useState(false);
   const [status, setStatus] = useState("Ready");
 
   const [email, setEmail] = useState("");
   const [firstName, setFirstName] = useState("");
+
+  const MAX_FILES = 10;
+  const MAX_FILE_SIZE = 20 * 1024 * 1024;
+  const MAX_TOTAL_SIZE = 35 * 1024 * 1024;
+
+  const handleAttachmentChange = (event) => {
+    const selectedFiles = Array.from(event.target.files || []);
+
+    if (selectedFiles.length + attachments.length > MAX_FILES) {
+      toast.error("Maximum 10 attachments allowed.");
+      event.target.value = "";
+      return;
+    }
+
+    const oversizedFile = selectedFiles.find(
+      (file) => file.size > MAX_FILE_SIZE,
+    );
+
+    if (oversizedFile) {
+      toast.error(`${oversizedFile.name} exceeds 10 MB.`);
+      event.target.value = "";
+      return;
+    }
+
+    const combinedFiles = [...attachments, ...selectedFiles];
+
+    const totalSize = combinedFiles.reduce(
+      (total, file) => total + file.size,
+      0,
+    );
+
+    if (totalSize > MAX_TOTAL_SIZE) {
+      toast.error("Total attachments must not exceed 25 MB.");
+      event.target.value = "";
+      return;
+    }
+
+    setAttachments(combinedFiles);
+    event.target.value = "";
+  };
+
+  const removeAttachment = (indexToRemove) => {
+    setAttachments((currentFiles) =>
+      currentFiles.filter((_, index) => index !== indexToRemove),
+    );
+  };
 
   // =========================
   // LOAD TEMPLATES
@@ -129,6 +177,16 @@ function App() {
         setLoggedInUser({
           email: data.email,
         });
+
+        if (response.ok) {
+          console.log("SESSION RESTORED:", data);
+
+          setLoggedInUser({
+            email: data.email,
+          });
+
+          return;
+        }
       } catch (error) {
         console.error("Session restore error:", error);
       } finally {
@@ -426,21 +484,54 @@ function App() {
       return;
     }
 
+    const ccAddresses = cc
+      .split(",")
+      .map((address) => address.trim())
+      .filter(Boolean);
+
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    if (ccAddresses.some((address) => !emailPattern.test(address))) {
+      toast.error("Please check your CC email addresses.");
+      return;
+    }
+
+    if (attachments.length > MAX_FILES) {
+      toast.error("Maximum 10 attachments allowed.");
+      return;
+    }
+
+    if (attachments.some((file) => file.size > MAX_FILE_SIZE)) {
+      toast.error("Each attachment must be 10 MB or smaller.");
+      return;
+    }
+
+    const totalSize = attachments.reduce((total, file) => total + file.size, 0);
+
+    if (totalSize > MAX_TOTAL_SIZE) {
+      toast.error("Total attachments must not exceed 25 MB.");
+      return;
+    }
+
     try {
       setSending(true);
       setStatus("Sending emails...");
 
+      const formData = new FormData();
+
+      formData.append("subject", subject);
+      formData.append("body", body);
+      formData.append("cc", ccAddresses.join(", "));
+      formData.append("recipients", JSON.stringify(recipients));
+      formData.append("sessionId", localStorage.getItem("sessionId") || "");
+
+      attachments.forEach((file) => {
+        formData.append("attachments", file);
+      });
+
       const response = await fetch(`${API_URL}/api/email/bulk`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          subject,
-          body,
-          recipients,
-          sessionId: localStorage.getItem("sessionId"),
-        }),
+        body: formData,
       });
 
       const data = await response.json();
@@ -455,17 +546,17 @@ function App() {
         `Completed: ${data.summary.sent} sent | ${data.summary.failed} failed`,
       );
 
-      alert(
-        `Sending completed!\n\n` +
-          `Sent: ${data.summary.sent}\n` +
-          `Failed: ${data.summary.failed}`,
+      toast.success(
+        <div>
+          <strong>Sending completed!</strong>
+          <div>Sent: {data.summary.sent}</div>
+          <div>Failed: {data.summary.failed}</div>
+        </div>,
       );
     } catch (error) {
       console.error("Send error:", error);
-
       setStatus("Error occurred");
-
-      alert(`Failed to send emails.\n\n${error.message}`);
+      toast.error(`Failed to send emails.\n\n${error.message}`);
     } finally {
       setSending(false);
     }
@@ -538,9 +629,7 @@ function App() {
       return;
     }
 
-    const confirmed = window.confirm(
-      `Are you sure you want to delete all ${recipients.length} recipients?`,
-    );
+    const confirmed = handleDeleteAll();
 
     if (!confirmed) {
       return;
@@ -577,6 +666,35 @@ function App() {
       console.error("Clear recipients error:", error);
       toast.error(`Failed to clear recipients.\n\n${error.message}`);
     }
+  };
+
+  const handleDeleteAll = () => {
+    toast(
+      (t) => (
+        <div>
+          <p>
+            Are you sure you want to delete all{" "}
+            <strong>{recipients.length}</strong> recipients?
+          </p>
+
+          <div style={{ display: "flex", gap: "8px", marginTop: "10px" }}>
+            <button onClick={() => toast.dismiss(t.id)}>Cancel</button>
+
+            <button
+              onClick={() => {
+                toast.dismiss(t.id);
+                clearAllRecipients();
+              }}
+            >
+              Delete
+            </button>
+          </div>
+        </div>
+      ),
+      {
+        duration: Infinity,
+      },
+    );
   };
 
   return (
@@ -759,6 +877,101 @@ function App() {
               onChange={(e) => setSubject(e.target.value)}
               placeholder="Enter email subject"
             />
+          </div>
+
+          {/* =========================
+    CC EMAIL ADDRESSES
+========================= */}
+
+          <div className="section mail-options">
+            <label htmlFor="cc-emails">CC Email Addresses</label>
+
+            <input
+              id="cc-emails"
+              type="text"
+              value={cc}
+              onChange={(event) => setCc(event.target.value)}
+              placeholder="manager@example.com, team@example.com"
+            />
+
+            <p className="hint">
+              Multiple addresses ko comma se separate karein. Har recipient ko
+              email ki copy in CC addresses par bhi jayegi.
+            </p>
+          </div>
+
+          {/* =========================
+    FILE ATTACHMENTS
+========================= */}
+
+          <div className="section mail-options">
+            <label htmlFor="email-attachments">Attachments</label>
+
+            <label className="attachment-dropzone" htmlFor="email-attachments">
+              <span className="attachment-icon">＋</span>
+              <strong>Choose files to attach &nbsp;</strong>
+              <small>Maximum 10 files · 20 MB per file · 35 MB total</small>
+            </label>
+
+            <input
+              id="email-attachments"
+              className="attachment-input"
+              type="file"
+              multiple
+              onChange={handleAttachmentChange}
+              disabled={sending}
+            />
+
+            {attachments.length > 0 && (
+              <div className="attachment-list">
+                <div className="attachment-list-header">
+                  <strong>Selected files ({attachments.length})</strong>
+
+                  <button
+                    type="button"
+                    className="remove-all-files"
+                    onClick={() => setAttachments([])}
+                    disabled={sending}
+                  >
+                    Remove all
+                  </button>
+                </div>
+
+                {attachments.map((file, index) => (
+                  <div
+                    className="attachment-item"
+                    key={`${file.name}-${file.size}-${index}`}
+                  >
+                    <div className="attachment-file-icon">FILE</div>
+
+                    <div className="attachment-file-info">
+                      <strong title={file.name}>{file.name}</strong>
+                      <span>{(file.size / (1024 * 1024)).toFixed(2)} MB</span>
+                    </div>
+
+                    <button
+                      type="button"
+                      className="remove-file-btn"
+                      onClick={() => removeAttachment(index)}
+                      disabled={sending}
+                      aria-label={`Remove ${file.name}`}
+                      title="Remove file"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+
+                <div className="attachment-total">
+                  Total size:{" "}
+                  {(
+                    attachments.reduce((sum, file) => sum + file.size, 0) /
+                    (1024 * 1024)
+                  ).toFixed(2)}{" "}
+                  / 25 MB
+                </div>
+              </div>
+            )}
           </div>
 
           {/* =========================

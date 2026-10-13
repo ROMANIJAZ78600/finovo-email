@@ -109,7 +109,9 @@ const login = async (req, res) => {
 
     const encryptedPassword = encryptPassword(password);
 
-    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+    const expiresAt = new Date(
+      Date.now() + 7 * 24 * 60 * 60 * 1000,
+    ).toISOString();
 
     const { error } = await supabase.from("sessions").insert({
       id: sessionId,
