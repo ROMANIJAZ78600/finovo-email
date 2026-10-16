@@ -32,44 +32,44 @@ function App() {
   const [firstName, setFirstName] = useState("");
 
   const MAX_FILES = 10;
-  const MAX_FILE_SIZE = 50 * 1024 * 1024;
-  const MAX_TOTAL_SIZE = 100 * 1024 * 1024;
+  const MAX_FILE_SIZE = 25 * 1024 * 1024;
+  const MAX_TOTAL_SIZE = 25 * 1024 * 1024;
 
-  const handleAttachmentChange = (event) => {
-    const selectedFiles = Array.from(event.target.files || []);
+  // const handleAttachmentChange = (event) => {
+  //   const selectedFiles = Array.from(event.target.files || []);
 
-    if (selectedFiles.length + attachments.length > MAX_FILES) {
-      toast.error("Maximum 10 attachments allowed.");
-      event.target.value = "";
-      return;
-    }
+  //   if (selectedFiles.length + attachments.length > MAX_FILES) {
+  //     toast.error("Maximum 10 attachments allowed.");
+  //     event.target.value = "";
+  //     return;
+  //   }
 
-    const oversizedFile = selectedFiles.find(
-      (file) => file.size > MAX_FILE_SIZE,
-    );
+  //   const oversizedFile = selectedFiles.find(
+  //     (file) => file.size > MAX_FILE_SIZE,
+  //   );
 
-    if (oversizedFile) {
-      toast.error(`${oversizedFile.name} exceeds 10 MB.`);
-      event.target.value = "";
-      return;
-    }
+  //   if (oversizedFile) {
+  //     toast.error(`${oversizedFile.name} exceeds 10 MB.`);
+  //     event.target.value = "";
+  //     return;
+  //   }
 
-    const combinedFiles = [...attachments, ...selectedFiles];
+  //   const combinedFiles = [...attachments, ...selectedFiles];
 
-    const totalSize = combinedFiles.reduce(
-      (total, file) => total + file.size,
-      0,
-    );
+  //   const totalSize = combinedFiles.reduce(
+  //     (total, file) => total + file.size,
+  //     0,
+  //   );
 
-    if (totalSize > MAX_TOTAL_SIZE) {
-      toast.error("Total attachments must not exceed 25 MB.");
-      event.target.value = "";
-      return;
-    }
+  //   if (totalSize > MAX_TOTAL_SIZE) {
+  //     toast.error("Total attachments must not exceed 25 MB.");
+  //     event.target.value = "";
+  //     return;
+  //   }
 
-    setAttachments(combinedFiles);
-    event.target.value = "";
-  };
+  //   setAttachments(combinedFiles);
+  //   event.target.value = "";
+  // };
 
   const removeAttachment = (indexToRemove) => {
     setAttachments((currentFiles) =>
@@ -496,23 +496,6 @@ function App() {
       return;
     }
 
-    if (attachments.length > MAX_FILES) {
-      toast.error("Maximum 10 attachments allowed.");
-      return;
-    }
-
-    if (attachments.some((file) => file.size > MAX_FILE_SIZE)) {
-      toast.error("Each attachment must be 10 MB or smaller.");
-      return;
-    }
-
-    const totalSize = attachments.reduce((total, file) => total + file.size, 0);
-
-    if (totalSize > MAX_TOTAL_SIZE) {
-      toast.error("Total attachments must not exceed 25 MB.");
-      return;
-    }
-
     try {
       setSending(true);
       setStatus("Sending emails...");
@@ -524,10 +507,6 @@ function App() {
       formData.append("cc", ccAddresses.join(", "));
       formData.append("recipients", JSON.stringify(recipients));
       formData.append("sessionId", localStorage.getItem("sessionId") || "");
-
-      attachments.forEach((file) => {
-        formData.append("attachments", file);
-      });
 
       const response = await fetch(`${API_URL}/api/email/bulk`, {
         method: "POST",
@@ -903,76 +882,6 @@ function App() {
           {/* =========================
     FILE ATTACHMENTS
 ========================= */}
-
-          <div className="section mail-options">
-            <label htmlFor="email-attachments">Attachments</label>
-
-            <label className="attachment-dropzone" htmlFor="email-attachments">
-              <span className="attachment-icon">＋</span>
-              <strong>Choose files to attach &nbsp;</strong>
-              <small>Maximum 10 files · 20 MB per file · 35 MB total</small>
-            </label>
-
-            <input
-              id="email-attachments"
-              className="attachment-input"
-              type="file"
-              multiple
-              onChange={handleAttachmentChange}
-              disabled={sending}
-            />
-
-            {attachments.length > 0 && (
-              <div className="attachment-list">
-                <div className="attachment-list-header">
-                  <strong>Selected files ({attachments.length})</strong>
-
-                  <button
-                    type="button"
-                    className="remove-all-files"
-                    onClick={() => setAttachments([])}
-                    disabled={sending}
-                  >
-                    Remove all
-                  </button>
-                </div>
-
-                {attachments.map((file, index) => (
-                  <div
-                    className="attachment-item"
-                    key={`${file.name}-${file.size}-${index}`}
-                  >
-                    <div className="attachment-file-icon">FILE</div>
-
-                    <div className="attachment-file-info">
-                      <strong title={file.name}>{file.name}</strong>
-                      <span>{(file.size / (1024 * 1024)).toFixed(2)} MB</span>
-                    </div>
-
-                    <button
-                      type="button"
-                      className="remove-file-btn"
-                      onClick={() => removeAttachment(index)}
-                      disabled={sending}
-                      aria-label={`Remove ${file.name}`}
-                      title="Remove file"
-                    >
-                      ×
-                    </button>
-                  </div>
-                ))}
-
-                <div className="attachment-total">
-                  Total size:{" "}
-                  {(
-                    attachments.reduce((sum, file) => sum + file.size, 0) /
-                    (1024 * 1024)
-                  ).toFixed(2)}{" "}
-                  / 25 MB
-                </div>
-              </div>
-            )}
-          </div>
 
           {/* =========================
             RECIPIENT

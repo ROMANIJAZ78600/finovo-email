@@ -3,6 +3,8 @@ const { downloadJson, uploadJson } = require("../config/storage");
 const { getSession } = require("./authcontrollers");
 const createImapClient = require("../config/imap");
 const ExcelJS = require("exceljs");
+const fs = require("fs");
+const path = require("path");
 
 // ======================================================
 // RECIPIENT FILE HELPERS
@@ -120,16 +122,7 @@ Visit Our Website
       subject,
     };
 
-    await new Promise((resolve, reject) => {
-      smtpClient.send(message, (error) => {
-        if (error) {
-          reject(error);
-          return;
-        }
-
-        resolve();
-      });
-    });
+    await smtpClient.sendAsync(message);
 
     return res.status(200).json({
       success: true,
@@ -276,7 +269,10 @@ const sendBulkEmails = async (req, res) => {
 
     const uploadedFiles = req.files || [];
 
-    // Handle both parsed arrays and JSON strings
+    // ==========================================
+    // PARSE RECIPIENTS
+    // ==========================================
+
     if (typeof recipients === "string") {
       try {
         recipients = JSON.parse(recipients);
@@ -291,27 +287,15 @@ const sendBulkEmails = async (req, res) => {
     }
 
     if (!Array.isArray(recipients)) {
-      console.error("Recipients is not an array:", typeof recipients);
-
       return res.status(400).json({
         success: false,
         message: "Recipients must be an array",
       });
     }
 
-    const MAX_TOTAL_SIZE = 100 * 1024 * 1024; // 25 MB
-
-    const totalAttachmentSize = uploadedFiles.reduce(
-      (total, file) => total + file.size,
-      0,
-    );
-
-    if (totalAttachmentSize > MAX_TOTAL_SIZE) {
-      return res.status(400).json({
-        success: false,
-        message: "Total attachments must not exceed 25 MB",
-      });
-    }
+    // ==========================================
+    // LOGIN SESSION
+    // ==========================================
 
     if (!sessionId) {
       return res.status(401).json({
@@ -331,7 +315,11 @@ const sendBulkEmails = async (req, res) => {
       });
     }
 
-    if (!recipients || !Array.isArray(recipients) || recipients.length === 0) {
+    // ==========================================
+    // VALIDATION
+    // ==========================================
+
+    if (recipients.length === 0) {
       return res.status(400).json({
         success: false,
         message: "Recipients are required",
@@ -352,6 +340,10 @@ const sendBulkEmails = async (req, res) => {
       });
     }
 
+    // ==========================================
+    // CC VALIDATION
+    // ==========================================
+
     const ccAddresses = cc
       ? String(cc)
           .split(",")
@@ -371,17 +363,68 @@ const sendBulkEmails = async (req, res) => {
       });
     }
 
+    // ==========================================
+    // FIXED PDF FROM BACKEND
+    // ==========================================
+
+    const pdfPath = path.join(
+      __dirname,
+      "../assets/Finovo_Global_Odoo_ERP_Company_Profile.pdf",
+    );
+
+    if (!fs.existsSync(pdfPath)) {
+      return res.status(500).json({
+        success: false,
+        message: "Company profile PDF not found in backend/assets",
+      });
+    }
+
+    const pdfBuffer = fs.readFileSync(pdfPath);
+
+    // ==========================================
+    // TOTAL ATTACHMENT SIZE: MAXIMUM 25 MB
+    // Includes fixed PDF and uploaded files
+    // ==========================================
+
+    const MAX_TOTAL_SIZE = 25 * 1024 * 1024;
+
+    const totalAttachmentSize =
+      pdfBuffer.length +
+      uploadedFiles.reduce((total, file) => total + file.size, 0);
+
+    if (totalAttachmentSize > MAX_TOTAL_SIZE) {
+      return res.status(400).json({
+        success: false,
+        message: "Total attachments including PDF must not exceed 25 MB",
+      });
+    }
+
+    // ==========================================
+    // EXISTING SMTP CLIENT — UNCHANGED
+    // ==========================================
+
     const smtpClient = await createSmtpClient(session.email, session.password);
 
-    const emailAttachments = uploadedFiles.map((file) => ({
-      data: file.buffer,
-      name: file.originalname,
-      type: file.mimetype,
-    }));
+    // ==========================================
+    // FIXED PDF + USER UPLOADS
+    // ==========================================
 
-    // ==================================================
-    // LOAD CURRENT USER'S SAVED RECIPIENTS
-    // ==================================================
+    const emailAttachments = [
+      {
+        data: pdfBuffer,
+        name: "Finovo_Global_Odoo_ERP_Company_Profile.pdf",
+        type: "application/pdf",
+      },
+      ...uploadedFiles.map((file) => ({
+        data: file.buffer,
+        name: file.originalname,
+        type: file.mimetype,
+      })),
+    ];
+
+    // ==========================================
+    // LOAD SAVED RECIPIENTS
+    // ==========================================
 
     const recipientsData = await getRecipientsData();
 
@@ -393,20 +436,16 @@ const sendBulkEmails = async (req, res) => {
 
     const savedRecipients = recipientsData[userEmail];
 
-    // ==================================================
-    // ORIGINAL FRONTEND ORDER MAINTAIN
-    // ==================================================
-
     const results = [...recipients];
 
+    // ==========================================
+    // SEND EMAILS
+    // ==========================================
+
     for (let index = 0; index < results.length; index++) {
-      const person = results[index];
+      const person = results[index] || {};
 
       const { id, email, firstName } = person;
-
-      // =================================================
-      // CHECK SAVED RECORD FIRST
-      // =================================================
 
       const savedIndex = savedRecipients.findIndex(
         (savedPerson) => savedPerson.id === id,
@@ -415,23 +454,17 @@ const sendBulkEmails = async (req, res) => {
       const savedPerson =
         savedIndex !== -1 ? savedRecipients[savedIndex] : person;
 
-      // =================================================
-      // ALREADY SENT → NEVER SEND AGAIN
-      // =================================================
-
+      // Skip recipients already sent successfully
       if (savedPerson.emailSent === "Yes") {
         console.log(`Already sent, skipping: ${email}`);
 
-        results[index] = {
-          ...savedPerson,
-        };
-
+        results[index] = { ...savedPerson };
         continue;
       }
 
-      // =================================================
-      // VALIDATION
-      // =================================================
+      // ========================================
+      // RECIPIENT VALIDATION
+      // ========================================
 
       if (!email || !firstName) {
         const failedRecord = {
@@ -454,14 +487,13 @@ const sendBulkEmails = async (req, res) => {
         }
 
         await saveRecipientsData(recipientsData);
-
         continue;
       }
 
       try {
-        // ===============================================
-        // PERSONALIZE
-        // ===============================================
+        // ======================================
+        // PERSONALIZE EMAIL
+        // ======================================
 
         const personalizedBody = body.replace(/\{first_name\}/g, firstName);
 
@@ -471,14 +503,15 @@ const sendBulkEmails = async (req, res) => {
   <head>
     <meta charset="UTF-8">
   </head>
-
   <body>
-    <div>
-      ${personalizedBody}
-    </div>
+    <div>${personalizedBody}</div>
   </body>
 </html>
 `;
+
+        // ======================================
+        // BUILD MESSAGE — EXISTING EMAILJS FORMAT
+        // ======================================
 
         const message = {
           text: personalizedBody,
@@ -495,29 +528,29 @@ const sendBulkEmails = async (req, res) => {
               data: finalHtml,
               alternative: true,
             },
-
             ...emailAttachments,
           ],
         };
 
-        // ===============================================
-        // SEND
-        // ===============================================
+        console.log("STARTING SMTP SEND:", email);
 
-        await new Promise((resolve, reject) => {
-          smtpClient.send(message, (error) => {
-            if (error) {
-              reject(error);
-              return;
-            }
+        console.log(
+          "TOTAL ATTACHMENT SIZE:",
+          (totalAttachmentSize / 1024 / 1024).toFixed(2),
+          "MB",
+        );
 
-            resolve();
-          });
-        });
+        // ======================================
+        // SEND USING EXISTING SMTP
+        // ======================================
 
-        // ===============================================
-        // SAVE TO SENT
-        // ===============================================
+        await smtpClient.sendAsync(message);
+
+        console.log("SMTP SEND COMPLETED:", email);
+
+        // ======================================
+        // SAVE TO EXISTING CPANEL SENT FOLDER
+        // ======================================
 
         await saveToSent(
           {
@@ -530,16 +563,23 @@ const sendBulkEmails = async (req, res) => {
           },
           session.email,
           session.password,
-          uploadedFiles.map((file) => ({
-            name: file.originalname,
-            type: file.mimetype,
-            data: file.buffer,
-          })),
+          [
+            {
+              name: "Finovo_Global_Odoo_ERP_Company_Profile.pdf",
+              type: "application/pdf",
+              data: pdfBuffer,
+            },
+            ...uploadedFiles.map((file) => ({
+              name: file.originalname,
+              type: file.mimetype,
+              data: file.buffer,
+            })),
+          ],
         );
 
-        // ===============================================
+        // ======================================
         // SUCCESS RECORD
-        // ===============================================
+        // ======================================
 
         const successRecord = {
           ...savedPerson,
@@ -562,9 +602,9 @@ const sendBulkEmails = async (req, res) => {
 
         results[index] = successRecord;
 
-        // ===============================================
+        // ======================================
         // SAVE PERMANENTLY
-        // ===============================================
+        // ======================================
 
         if (savedIndex !== -1) {
           savedRecipients[savedIndex] = successRecord;
@@ -577,7 +617,6 @@ const sendBulkEmails = async (req, res) => {
         console.log(`Sent to: ${email}`);
       } catch (error) {
         const errorMessage = error.message || "";
-
         const lowerError = errorMessage.toLowerCase();
 
         const isRecipientNotFound =
@@ -587,10 +626,6 @@ const sendBulkEmails = async (req, res) => {
           lowerError.includes("no such user") ||
           lowerError.includes("address rejected") ||
           lowerError.includes("invalid address");
-
-        // ===============================================
-        // FAILED / NOT FOUND
-        // ===============================================
 
         const failedRecord = {
           ...savedPerson,
@@ -620,9 +655,9 @@ const sendBulkEmails = async (req, res) => {
       }
     }
 
-    // ==================================================
+    // ==========================================
     // SUMMARY
-    // ==================================================
+    // ==========================================
 
     const sentCount = results.filter(
       (person) => person.emailSent === "Yes",
@@ -632,16 +667,17 @@ const sendBulkEmails = async (req, res) => {
       (person) => person.status === "Failed" || person.status === "Not Found",
     ).length;
 
+    console.log("Fixed PDF attached:", true);
+    console.log("Uploaded attachment count:", uploadedFiles.length);
+
     return res.status(200).json({
       success: true,
       message: "Bulk sending completed",
-
       summary: {
         total: results.length,
         sent: sentCount,
         failed: failedCount,
       },
-
       results,
     });
   } catch (error) {
